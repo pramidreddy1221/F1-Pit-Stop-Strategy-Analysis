@@ -11,7 +11,7 @@ Full requirements, scope decisions, and limitations are in [`requirements_doc.md
 ## Key findings
 
 - **Pit lane time has only a weak link to finishing position.** Correlation with finishing position is +0.135 for a single stop, +0.142 for average stop time per race, and +0.175 for total pit lane time per race. P1 finishers averaged 43.2 s of total pit lane time per race, compared with 57.0 s for P18. The pattern is real but weak, and faster cars and faster crews tend to belong to the same teams, so pit time alone doesn't explain results.
-- **Pit lane times did not get faster over the period.** The largest year-over-year change was 2013 to 2014, an increase of 1.29 s (1,295 ms) per stop. Season averages have stayed between roughly 23.3 s and 25.4 s since.
+- **Pit lane times did not get faster over the period.** The largest year-over-year change was 2013 to 2014, an increase of 1.29 s (1,295 ms) per stop. Season averages ranged from 23.3 s (2012) to 25.4 s (2021), with no steady improvement after 2014.
 - **Red Bull was both the fastest and the most consistent constructor** (23.74 s average, 4.16 s standard deviation). **Alfa Romeo was the slowest and least consistent** (25.92 s, 6.83 s).
 - **Slow and inconsistent are different problems.** Aston Martin was mid-pack on speed (24.89 s) but had the second-highest variability (6.67 s), which points to a consistency issue rather than a raw-speed one.
 
