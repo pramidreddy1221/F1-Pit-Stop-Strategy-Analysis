@@ -18,7 +18,7 @@ CREATE TABLE results (
     fastestLapSpeed NUMERIC(10,2), statusId INT
 );
 
--- pit_stops, constructors, circuits also loaded — see requirements_doc.md for schema
+-- pit_stops, constructors, circuits also loaded from the Kaggle CSVs (table definitions not included here)
 
 
 -- Outlier check: milliseconds > 100000 = red-flag/safety-car artifacts, not slow stops (verify count on rerun)
@@ -44,20 +44,33 @@ JOIN pit_stops p ON p.driverId = s.driverId AND p.raceId = s.raceId
 JOIN races r ON r.raceId = s.raceId
 WHERE year BETWEEN 2011 AND 2024;
 
-
--- 3. Correlation: single stop duration vs. finishing position -> -0.045 (no relationship)
+-- 3. Correlation: single stop duration vs. finishing position -> +0.135 (weak, slower stop = worse finish)
+-- (earlier run without the outlier filter gave -0.045; outliers were masking the relationship)
 SELECT CORR(p.milliseconds, s.position)
 FROM results s
 JOIN pit_stops p ON p.driverId = s.driverId AND p.raceId = s.raceId
 JOIN races r ON r.raceId = s.raceId
 WHERE year BETWEEN 2011 AND 2024
-  AND s.position IS NOT NULL;
+  AND s.position IS NOT NULL
+  AND p.milliseconds < 100000;
 
 
 -- 4. Correlation: TOTAL pit time per driver-per-race vs. position -> +0.175 (weak, more time = worse finish)
 SELECT CORR(sub.position, total_time) FROM
 (
     SELECT p.driverId, p.raceId, s.position, SUM(p.milliseconds) AS total_time
+    FROM pit_stops p
+    JOIN results s ON p.driverId = s.driverId AND p.raceId = s.raceId
+    JOIN races r ON r.raceId = s.raceId
+    WHERE year BETWEEN 2011 AND 2024 AND p.milliseconds < 100000
+    GROUP BY p.driverId, p.raceId, s.position
+) AS sub;
+
+
+-- 4b. Correlation: AVERAGE stop time per driver-per-race vs. position -> +0.142 (weak)
+SELECT CORR(sub.position, avg_time) FROM
+(
+    SELECT p.driverId, p.raceId, s.position, AVG(p.milliseconds) AS avg_time
     FROM pit_stops p
     JOIN results s ON p.driverId = s.driverId AND p.raceId = s.raceId
     JOIN races r ON r.raceId = s.raceId
@@ -105,5 +118,59 @@ FROM (
 ) AS yearly
 ORDER BY year;
 
+-- 8. Mean + stddev by constructor per year — same logic as view V1 below
+-- No HAVING: stop counts per team-season run 44-110 with no gap, so no noise to filter
+SELECT c.name,
+       r.year,
+       AVG(p.milliseconds) AS avg_ms,
+       STDDEV(p.milliseconds) AS stddev_ms,
+       COUNT(*) AS stop_count
+FROM pit_stops p
+JOIN results s ON p.driverId = s.driverId AND p.raceId = s.raceId
+JOIN races r ON r.raceId = s.raceId
+JOIN constructors c ON c.constructorId = s.constructorId
+WHERE year BETWEEN 2011 AND 2024 AND p.milliseconds < 100000
+GROUP BY c.name, r.year
+ORDER BY c.name, r.year;
 
--- Parked: DNF pit stop patterns; Ferrari year-by-year breakdown
+
+-- ===== Views for Power BI =====
+
+-- V1. Stats per constructor per year (from query 8) — feeds the yearly trend line (weighted average)
+--     and the "pit stops analyzed" and "2013 -> 2014 change" cards
+CREATE OR REPLACE VIEW vw_constructor_year_stats AS
+SELECT c.name as constructor,
+       r.year,
+       AVG(p.milliseconds) AS avg_ms,
+       STDDEV(p.milliseconds) AS stddev_ms,
+       COUNT(*) AS stop_count
+FROM pit_stops p
+JOIN results s ON p.driverId = s.driverId AND p.raceId = s.raceId
+JOIN races r ON r.raceId = s.raceId
+JOIN constructors c ON c.constructorId = s.constructorId
+WHERE year BETWEEN 2011 AND 2024 AND p.milliseconds < 100000
+GROUP BY c.name, r.year;
+
+
+-- V2. Pit time per driver per race, DNFs excluded (from query 4) — feeds pit time vs. finishing position
+CREATE OR REPLACE VIEW vw_driver_race_pit_times AS
+SELECT p.driverId, p.raceId, s.position, SUM(p.milliseconds) AS total_pit_ms, AVG(p.milliseconds) AS avg_stop_ms, COUNT(*) AS stop_count,r.year
+FROM pit_stops p
+JOIN results s ON p.driverId = s.driverId AND p.raceId = s.raceId
+JOIN races r ON r.raceId = s.raceId
+WHERE year BETWEEN 2011 AND 2024 AND p.milliseconds < 100000 AND s.position IS NOT NULL
+GROUP BY p.driverId, p.raceId, s.position,r.year;
+
+-- V3: full-window constructor stats (replicates query 5) — feeds constructor comparison visual
+CREATE VIEW vw_constructor_stats AS
+SELECT c.name AS constructor,
+       AVG(p.milliseconds) AS avg_ms,
+       STDDEV(p.milliseconds) AS stddev_ms,
+       COUNT(*) AS stop_count
+FROM pit_stops p
+JOIN results s ON p.driverId = s.driverId AND p.raceId = s.raceId
+JOIN races r ON r.raceId = s.raceId
+JOIN constructors c ON c.constructorId = s.constructorId
+WHERE year BETWEEN 2011 AND 2024 AND p.milliseconds < 100000
+GROUP BY c.name
+HAVING COUNT(*) >= 150;

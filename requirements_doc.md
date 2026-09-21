@@ -52,8 +52,9 @@ season trend (item 2) to answer the second half of the business question.
 - **Small constructors excluded from the comparison.** Only teams with 150+
   pit stops are included in the constructor comparison, based on a natural
   gap in stop counts (73–149 vs. 231+). This keeps multi-season teams only.
-- **Outlier stops excluded.** Stops of 100 seconds or longer are removed,
-  as they don't represent normal pit stops.
+- **Outlier stops excluded.** Stops of 100 seconds or longer are removed.
+  These are red-flag and safety-car artifacts in the timing data, not slow
+  pit stops.
 - **DNFs excluded from the finishing-position analysis.** A driver without
   a finishing position cannot be placed on that axis.
 - **Positions 21–24 excluded from the finishing-position chart.** Only the
